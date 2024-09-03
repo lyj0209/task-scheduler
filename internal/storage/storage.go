@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/yourusername/distributed-task-scheduler/internal/models"
+	"github.com/lyj0209/task-scheduler/internal/models"
 )
 
 type Storage interface {

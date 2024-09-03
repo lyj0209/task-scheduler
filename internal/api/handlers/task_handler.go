@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yourusername/distributed-task-scheduler/examples/new_task"
-	"github.com/yourusername/distributed-task-scheduler/internal/scheduler"
+	"github.com/lyj0209/task-scheduler/examples/new_task"
+	"github.com/lyj0209/task-scheduler/internal/scheduler"
 )
 
 type TaskHandler struct {
