@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-    mysqlStorage, err := mysql.NewMySQLStorage("user:password@tcp(localhost:3306)/ecommerce")
+	mysqlStorage, err := mysql.NewMySQLStorage("root:yourpassword@tcp(localhost:3306)/ecommerce")
     if err != nil {
         log.Fatalf("Failed to connect to MySQL: %v", err)
     }

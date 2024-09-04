@@ -2,6 +2,7 @@ package redis
 
 import (
     "encoding/json"
+	"crypto/tls" 
     "github.com/go-redis/redis/v8"
     "github.com/lyj0209/task-scheduler/internal/models"
     "context"
@@ -16,7 +17,15 @@ type RedisStorage struct {
 func NewRedisStorage(addr string) (*RedisStorage, error) {
     client := redis.NewClient(&redis.Options{
         Addr: addr,
+
+        // 增加以下选项以允许不安全的连接（仅用于本地开发）
+		TLSConfig: &tls.Config{
+            InsecureSkipVerify: true,
+        },
     })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
 
     _, err := client.Ping(context.Background()).Result()
     if err != nil {
