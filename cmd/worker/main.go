@@ -19,7 +19,7 @@ func main() {
         log.Fatalf("Failed to connect to Redis: %v", err)
     }
 
-    kafkaQueue, err := kafka.NewKafkaQueue([]string{"localhost:9092"}, "tasks")
+    kafkaQueue, err := kafka.NewKafkaQueue([]string{"kafka:29092"}, "tasks")
     if err != nil {
         log.Fatalf("Failed to create Kafka queue: %v", err)
     }

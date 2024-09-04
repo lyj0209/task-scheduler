@@ -2,7 +2,7 @@ package kafka
 
 import (
     "encoding/json"
-    "github.com/Shopify/sarama"
+    "github.com/IBM/sarama"
     "github.com/lyj0209/task-scheduler/internal/models"
 )
 

@@ -1,8 +1,7 @@
-version: '3.8'
 
 services:
   mysql:
-    image: mysql:8
+    image: mysql:5.7
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: taskdb
@@ -10,17 +9,23 @@ services:
       MYSQL_PASSWORD: password
     ports:
       - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
 
   kafka:
     image: confluentinc/cp-kafka:latest
     ports:
+      - "29092:29092"
       - "9092:9092"
     environment:
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
     depends_on:
       - zookeeper
 
@@ -33,12 +38,26 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   etcd:
-    image: bitnami/etcd:latest
+       image: bitnami/etcd:latest
+       ports:
+         - "42379:2379"
+       environment:
+         - ALLOW_NONE_AUTHENTICATION=yes
+         - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+
+  redis:
+    image: redis:6
     ports:
-      - "2379:2379"
-    environment:
-      - ALLOW_NONE_AUTHENTICATION=yes
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - "6379:6379"
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 50
+
 
   scheduler:
     build:
@@ -50,3 +69,18 @@ services:
       - mysql
       - kafka
       - etcd
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      - mysql
+      - kafka
+      - etcd
+      - redis
+    
+
+volumes:
+  mysql_data:
