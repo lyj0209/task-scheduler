@@ -1,55 +1,100 @@
 package worker
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-
-	"github.com/lyj0209/task-scheduler/internal/models"
-	"github.com/lyj0209/task-scheduler/pkg/queue"
-	"github.com/lyj0209/task-scheduler/examples/new_task"
-	// 导入其他任务类型...
+    "github.com/lyj0209/task-scheduler/internal/models"
+    "github.com/lyj0209/task-scheduler/internal/storage/mysql"
+    "github.com/lyj0209/task-scheduler/internal/storage/redis"
+    "github.com/lyj0209/task-scheduler/pkg/queue"
+    "log"
+    "time"
 )
 
 type Worker struct {
-	id    string
-	queue queue.Queue
+    mysqlStorage *mysql.MySQLStorage
+    redisStorage *redis.RedisStorage
+    queue        queue.Queue
 }
 
-func NewWorker(id string, q queue.Queue) *Worker {
-	return &Worker{
-		id:    id,
-		queue: q,
-	}
+func NewWorker(mysqlStorage *mysql.MySQLStorage, redisStorage *redis.RedisStorage, queue queue.Queue) *Worker {
+    return &Worker{
+        mysqlStorage: mysqlStorage,
+        redisStorage: redisStorage,
+        queue:        queue,
+    }
 }
 
-func (w *Worker) Start(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			task, err := w.queue.ConsumeTask()
-			if err != nil {
-				log.Printf("Error consuming task: %v", err)
-				continue
-			}
+func (w *Worker) Start() {
+    for {
+        task, err := w.queue.ConsumeTask()
+        if err != nil {
+            log.Printf("Error consuming task: %v", err)
+            time.Sleep(5 * time.Second)
+            continue
+        }
 
-			if err := w.executeTask(task); err != nil {
-				log.Printf("Error executing task: %v", err)
-				// 处理任务执行失败的逻辑
-			}
-		}
-	}
+        if task == nil {
+            time.Sleep(5 * time.Second)
+            continue
+        }
+
+        log.Printf("Processing task: %+v", task)
+
+        err = w.executeTask(task)
+        if err != nil {
+            log.Printf("Error executing task: %v", err)
+            task.Status = models.TaskStatusFailed
+        } else {
+            task.Status = models.TaskStatusCompleted
+        }
+
+        err = w.mysqlStorage.UpdateTask(task)
+        if err != nil {
+            log.Printf("Error updating task: %v", err)
+        }
+    }
 }
 
 func (w *Worker) executeTask(task *models.Task) error {
-	switch task.Type {
-	case "new_task":
-		return new_task.ExecuteNewTask(task)
-	// 其他任务类型...
-	default:
-		return fmt.Errorf("unknown task type: %s", task.Type)
-	}
+    switch task.Type {
+    case "update_order_count":
+        return w.updateOrderCount(task)
+    case "update_hot_products":
+        return w.updateHotProducts(task)
+    default:
+        return nil
+    }
+}
+
+func (w *Worker) updateOrderCount(task *models.Task) error {
+    count, err := w.mysqlStorage.GetOrderCount24h()
+    if err != nil {
+        return err
+    }
+
+    err = w.redisStorage.SetOrderCount24h(count)
+    if err != nil {
+        return err
+    }
+
+    task.Result = map[string]interface{}{
+        "order_count_24h": count,
+    }
+    return nil
+}
+
+func (w *Worker) updateHotProducts(task *models.Task) error {
+    hotProducts, err := w.mysqlStorage.GetHotProducts(10)
+    if err != nil {
+        return err
+    }
+
+    err = w.redisStorage.UpdateHotProducts(hotProducts)
+    if err != nil {
+        return err
+    }
+
+    task.Result = map[string]interface{}{
+        "hot_products": hotProducts,
+    }
+    return nil
 }

@@ -1,0 +1,26 @@
+package main
+
+import (
+    "github.com/lyj0209/task-scheduler/internal/storage/mysql"
+    "github.com/lyj0209/task-scheduler/internal/storage/redis"
+    "github.com/lyj0209/task-scheduler/internal/worker"
+    "github.com/lyj0209/task-scheduler/pkg/queue"
+    "log"
+)
+
+func main() {
+    mysqlStorage, err := mysql.NewMySQLStorage("user:password@tcp(localhost:3306)/ecommerce")
+    if err != nil {
+        log.Fatalf("Failed to connect to MySQL: %v", err)
+    }
+
+    redisStorage, err := redis.NewRedisStorage("localhost:6379")
+    if err != nil {
+        log.Fatalf("Failed to connect to Redis: %v", err)
+    }
+
+    queue := queue.NewMemoryQueue()
+
+    worker := worker.NewWorker(mysqlStorage, redisStorage, queue)
+    worker.Start()
+}

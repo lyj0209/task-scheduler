@@ -1,68 +1,53 @@
 package scheduler
 
 import (
-	
-	"context"
-	"time"
-
-	"github.com/lyj0209/task-scheduler/internal/models"
-	"github.com/lyj0209/task-scheduler/pkg/queue"
-	"github.com/lyj0209/task-scheduler/pkg/discovery"
-	"github.com/lyj0209/task-scheduler/internal/storage"
-
+    "github.com/lyj0209/task-scheduler/internal/models"
+    "github.com/lyj0209/task-scheduler/internal/storage/mysql"
+    "github.com/lyj0209/task-scheduler/pkg/queue"
+    "log"
+    "time"
 )
 
 type Scheduler struct {
-	queue     queue.Queue
-	discovery discovery.Discovery
-	storage   storage.Storage
+    mysqlStorage *mysql.MySQLStorage
+    queue        queue.Queue
 }
 
-func NewScheduler(q queue.Queue, d discovery.Discovery, s storage.Storage) *Scheduler {
-	return &Scheduler{
-		queue:     q,
-		discovery: d,
-		storage:   s,
-	}
+func NewScheduler(mysqlStorage *mysql.MySQLStorage, queue queue.Queue) *Scheduler {
+    return &Scheduler{
+        mysqlStorage: mysqlStorage,
+        queue:        queue,
+    }
 }
 
-func (s *Scheduler) Start(ctx context.Context) error {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+func (s *Scheduler) Start() {
+    ticker := time.NewTicker(1 * time.Minute)
+    defer ticker.Stop()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			if err := s.dispatchTasks(); err != nil {
-				// Log error
-			}
-		}
-	}
+    for {
+        select {
+        case <-ticker.C:
+            s.scheduleTasks()
+        }
+    }
 }
 
-func (s *Scheduler) dispatchTasks() error {
-	tasks, err := s.storage.GetPendingTasks()
-	if err != nil {
-		return err
-	}
+func (s *Scheduler) scheduleTasks() {
+    tasks := []*models.Task{
+        {Type: "update_order_count", Status: models.TaskStatusPending},
+        {Type: "update_hot_products", Status: models.TaskStatusPending},
+    }
 
-	for _, task := range tasks {
-		if err := s.queue.PublishTask(task); err != nil {
-			// Log error and continue
-			continue
-		}
-		task.Status = models.TaskStatusRunning
-		if err := s.storage.UpdateTask(task); err != nil {
-			// Log error
-		}
-	}
+    for _, task := range tasks {
+        err := s.mysqlStorage.CreateTask(task)
+        if err != nil {
+            log.Printf("Error creating task: %v", err)
+            continue
+        }
 
-	return nil
-}
-
-func (s *Scheduler) SubmitTask(task *models.Task) error {
-	task.Status = models.TaskStatusPending
-	return s.storage.CreateTask(task)
+        err = s.queue.PublishTask(task)
+        if err != nil {
+            log.Printf("Error publishing task: %v", err)
+        }
+    }
 }
