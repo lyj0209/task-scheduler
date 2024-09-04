@@ -10,6 +10,12 @@ import (
 )
 
 func main() {
+    mysqlHost := os.Getenv("MYSQL_HOST")
+    mysqlPort := os.Getenv("MYSQL_PORT")
+    mysqlUser := os.Getenv("MYSQL_USER")
+    mysqlPassword := os.Getenv("MYSQL_PASSWORD")
+    mysqlDatabase := os.Getenv("MYSQL_DATABASE")
+    kafkaBrokers := os.Getenv("KAFKA_BROKERS")
     mysqlDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
     mysqlStorage, err := mysql.NewMySQLStorage(mysqlDSN)
     if err != nil {
@@ -24,12 +30,7 @@ func main() {
 
     scheduler := scheduler.NewScheduler(mysqlStorage, kafkaQueue)
     scheduler.Start()
-    // mysqlHost := os.Getenv("MYSQL_HOST")
-    // mysqlPort := os.Getenv("MYSQL_PORT")
-    // mysqlUser := os.Getenv("MYSQL_USER")
-    // mysqlPassword := os.Getenv("MYSQL_PASSWORD")
-    // mysqlDatabase := os.Getenv("MYSQL_DATABASE")
-    // kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+
 
     // mysqlStorage, err := mysql.NewMySQLStorage("root:yourpassword@tcp(mysql:3306)/ecommerce")
     // if err != nil {
